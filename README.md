@@ -32,3 +32,9 @@ In **Jekyll 3.3.0**, auto-regeneration doesn't work due to [our geeky fascinatio
 2. Go there and in the `jekyll-3.3.0` folder find `lib/jekyll/commands/build.rb`.
 3. Open `build.rb` in a text editor and replace everything with the code in [this file](https://raw.githubusercontent.com/jekyll/jekyll/d590d7a73863c896e3fe0292e8b2976172fa91f7/lib/jekyll/commands/build.rb), which is the `build.rb` from Jekyll 3.2.1. (The only affected lines are 73 to the end.)
 4. Save and close `build.rb`.
+
+## Omnirunner 
+
+- Do a `bundle install` to make sure you have all the gems
+- On a non-Windows machine, you should be able to do `./omnirunner.rb` - on Windows you will need to run `ruby omnirunner.rb`
+- Currently only supports epubs

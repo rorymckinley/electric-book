@@ -7,3 +7,5 @@ gem 'wdm', '>= 0.1.0' if Gem.win_platform?
 
 # Uncomment the following line to test whether your site will build on GitHub Pages
 # gem 'github-pages', group: :jekyll_plugins
+#
+gem 'highline', '~> 1.7.8'
