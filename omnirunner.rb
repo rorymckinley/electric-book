@@ -67,7 +67,7 @@ end
 # ...and run Jekyll to build new HTML
 stdout, stderr, _ = Open3.capture3(%Q{bundle exec jekyll build --config="_config.yml,_configs/_config.epub.yml,#{config}"})
 cli.say("output #{stdout}")
-cli.say("errors #{stderr}\n")
+cli.say("errors #{stderr}\n") unless stderr.empty?
 cli.say("HTML generated")
 
 # What's next?
