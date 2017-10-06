@@ -104,3 +104,35 @@ else
   FileUtils.cp(Dir.glob(File.join('_site', bookfolder, 'styles', '*.css')), styles_dest_path)
 end
 cli.say('Styles copied')
+
+# Test copying options
+cli.say('Copying images...')
+if subdirectory
+  images_path = File.join('_site', bookfolder, subdirectory, 'images')
+  if Dir.exist?(images_path) and directory_has_contents?(images_path)
+    # Translation output, and an images subdir for that translation exists:
+    # create folder structure, and copy only the images in that translation folder
+    # Copy translated images, after deleting original images
+    FileUtils.remove_entry_secure(File.join('_site', bookfolder, 'images'))
+    images_dest_path = File.join('_site', 'epub', subdirectory, 'images')
+    FileUtils.mkdir_p(images_dest_path)
+    FileUtils.cp_r(Dir.glob(File.join(images_path, 'epub')), images_dest_path)
+  else
+    # Translation output, but no translated-images subdirectory for that translation:
+    # copy the original images files only
+    images_dest_path = File.join('_site', 'epub', 'images')
+    FileUtils.mkdir(images_dest_path)
+    FileUtils.cp_r(File.join('_site', bookfolder, 'images', 'epub'), images_dest_path)
+  end
+else
+  # If original language output: copy only files in images/epub
+  images_dest_path = File.join('_site', 'epub', 'images')
+  FileUtils.mkdir(images_dest_path)
+  FileUtils.cp_r(File.join('_site', bookfolder, 'images', 'epub'), images_dest_path)
+end
+# Done! Move along to moving the text folder
+
+# Copy contents of text or text/subdirectory to epub/text.
+# We don't want all the files in text, we only want the ones
+# in the epub file list.
+cli.say('Copying text...')
