@@ -13,6 +13,7 @@ exclude:
   - run-linux.sh
   - run-mac.command
   - run-windows.bat
+  - omnirunner.rb
   - Gemfile
   - Gemfile.lock
   - README*
