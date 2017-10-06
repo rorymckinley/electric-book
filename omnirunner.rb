@@ -10,6 +10,15 @@ def directory_has_contents?(path)
   Dir.entries(path).any? { |i| i != '.' && i != '..' }
 end
 
+def parse_file_list(path)
+  IO.read(path).split($/).reject { |name| name.strip.empty? }
+end
+
+def copy_specified_text_files(src, dest)
+  file_list = parse_file_list(File.join(src, 'file-list')).map { |name| File.join(src, name) }
+  FileUtils.cp(file_list, dest)
+end
+
 cli = HighLine.new
 
 # epub
@@ -131,8 +140,23 @@ else
   FileUtils.cp_r(File.join('_site', bookfolder, 'images', 'epub'), images_dest_path)
 end
 # Done! Move along to moving the text folder
+cli.say('Images copied.')
 
 # Copy contents of text or text/subdirectory to epub/text.
 # We don't want all the files in text, we only want the ones
 # in the epub file list.
 cli.say('Copying text...')
+
+if subdirectory
+  # Copy the contents of the subdirectory
+  FileUtils.remove_entry_secure(File.join('_site', bookfolder, 'text'))
+  text_dest_path = File.join('_site', 'epub', subdirectory, 'text')
+  FileUtils.mkdir_p(text_dest_path)
+  copy_specified_text_files(File.join('_site', bookfolder, subdirectory, 'text'), text_dest_path)
+else
+  # Copy the contents of the original text folder
+  text_dest_path = File.join('_site', 'epub', 'text')
+  FileUtils.mkdir(text_dest_path)
+  copy_specified_text_files(File.join('_site', bookfolder, 'text'), text_dest_path)
+end
+cli.say('Text copied.')
