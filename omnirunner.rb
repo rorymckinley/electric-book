@@ -160,3 +160,15 @@ else
   copy_specified_text_files(File.join('_site', bookfolder, 'text'), text_dest_path)
 end
 cli.say('Text copied.')
+
+# Get the right package.opf for the translation we're creating
+cli.say('Copying package file...')
+if subdirectory
+  # If translation language, use the package.opf in the subdirectory
+  # This will overwrite the original language OPF file
+  FileUtils.cp(File.join('_site', bookfolder, subdirectory, 'package.opf'), File.join('_site', 'epub', 'package.opf'))
+else
+  # If original language, use the package.opf in the root
+  FileUtils.cp(File.join('_site', bookfolder, 'package.opf'), File.join('_site', 'epub', 'package.opf'))
+end
+cli.say('Package file copied.')
