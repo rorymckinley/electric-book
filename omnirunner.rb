@@ -54,7 +54,6 @@ end
 
 def open_file(path)
   if OS.linux?
-puts "Bam?"
     system("xdg-open #{path}")
   elsif OS.mac?
     system("open #{path}")
@@ -65,7 +64,6 @@ end
 
 def open_directory(path)
   if OS.linux?
-    puts "Boom?"
     system("xdg-open #{path}")
   elsif OS.mac?
     system("open #{path}")
