@@ -9,3 +9,5 @@ gem 'wdm', '>= 0.1.0' if Gem.win_platform?
 # gem 'github-pages', group: :jekyll_plugins
 #
 gem 'highline', '~> 1.7.8'
+gem 'rubyzip', '~> 1.2.1'
+gem 'os', '~> 1.0.0'

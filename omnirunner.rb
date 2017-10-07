@@ -3,11 +3,18 @@
 require 'highline'
 require 'open3'
 require 'fileutils'
+require 'zip'
+require 'pathname'
+require 'os'
 
 def directory_has_contents?(path)
   # To deal with Windows and *nix-like
   # Ruby 2.4 has Dir.empty? which is a bit cleaner, but 2.4 only
   Dir.entries(path).any? { |i| i != '.' && i != '..' }
+end
+
+def directory_has_no_font_files?(path)
+  Dir.glob(File.join(path, '*.{ttf,otf,woff, woff2}')).empty?
 end
 
 def parse_file_list(path)
@@ -17,6 +24,42 @@ end
 def copy_specified_text_files(src, dest)
   file_list = parse_file_list(File.join(src, 'file-list')).map { |name| File.join(src, name) }
   FileUtils.cp(file_list, dest)
+end
+
+def directory_entries(path)
+  Dir.entries(path).reject { |i| i == '.' || i == '..' }
+end
+
+def store_compressed(zip_handler, full_path, base_path)
+  if File.file?(full_path)
+    base = Pathname.new(base_path)
+    full = Pathname.new(full_path)
+    relative = full.relative_path_from(base)
+    zip_handler.put_next_entry(relative, nil, nil, Zip::Entry::DEFLATED, Zlib::BEST_COMPRESSION)
+    zip_handler.write(IO.binread(full_path))
+  elsif File.directory?(full_path)
+    directory_entries(full_path).each { |entry| store_compressed(zip_handler, File.join(full_path, entry), base_path) }
+  end
+end
+
+def find_epubcheck
+  if OS.linux? || OS.mac?
+    stdout, _, _ = Open3.capture3("locate epubcheck.jar")
+  else
+    stdout, _, _ = Open3.capture3("where epubcheck.jar")
+  end
+  epubcheck = stdout.split("\n").first
+  epubcheck.nil? || epubcheck.empty? ? nil : epubcheck
+end
+
+def open_file(path)
+  if OS.linux?
+    system("xdg-open #{path}")
+  elsif OS.mac?
+    system("open #{path}")
+  else
+    system("start #{path}")
+  end
 end
 
 cli = HighLine.new
@@ -172,3 +215,102 @@ else
   FileUtils.cp(File.join('_site', bookfolder, 'package.opf'), File.join('_site', 'epub', 'package.opf'))
 end
 cli.say('Package file copied.')
+
+# If there is a js folder, and it has no contents, delete it.
+# Otherwise, if this is a translation, move the js folder
+# into the subdirectory alongside text, images, styles.
+# TODO Check the JS
+cli.say('Checking for Javascript...')
+js_path = File.join('_site', 'epub', 'js')
+if Dir.exist?(js_path) && !directory_has_contents?(js_path)
+  FileUtils.remove_entry_secure(js_path)
+end
+if subdirectory && Dir.exist?(js_path)
+  FileUtils.mv(js_path, File.join('_site', 'epub', subdirectory, 'js'))
+end
+cli.say('Javascript checked')
+
+# If there is a fonts folder, and it has no contents, delete it.
+# Otherwise, if this is a translation, move the fonts folder
+# into the subdirectory alongside text, images, styles.
+cli.say('Checking for fonts...')
+fonts_path = File.join('_site', 'epub', 'fonts')
+if Dir.exist?(fonts_path) && directory_has_no_font_files?(fonts_path)
+  FileUtils.remove_entry_secure(fonts_path)
+end
+if subdirectory && Dir.exist?(fonts_path)
+  FileUtils.mv(fonts_path, File.join('_site', 'epub', subdirectory, 'fonts'))
+end
+cli.say('Fonts checked.')
+
+# If no MathJax required, remove boilerplate mathjax directory
+cli.say('Checking for MathJax to move or remove...')
+mathjax_path = File.join('_site', 'epub', 'mathjax')
+if epubIncludeMathJax == 'n'
+  FileUtils.remove_entry_secure(mathjax_path)
+  cli.say('Unnecessary MathJax removed.')
+elsif epubIncludeMathJax == 'y' && subdirectory
+  FileUtils.mv(mathjax_path, File.join('_site', 'epub', subdirectory))
+  cli.say('MathJax moved.')
+end
+
+# Set the filename of the epub, sans extension
+epubFileName = "#{bookfolder}#{(subdirectory ? "-#{subdirectory}" : "")}"
+
+# If they exist, remove previous .zip and .epub files that we will replace.
+cli.say("Removing any previous #{epubFileName}.zip and #{epubFileName}.epub files...")
+output_file_sans_extension = File.join('_output', epubFileName)
+FileUtils.remove_entry_secure("#{output_file_sans_extension}.zip") if File.exist?("#{output_file_sans_extension}.zip")
+FileUtils.remove_entry_secure("#{output_file_sans_extension}.epub") if File.exist?("#{output_file_sans_extension}.epub")
+cli.say('Removed any previous zip and epub files.')
+
+# Now to zip the epub files. Important: mimetype first.
+cli.say('Compressing files...')
+zip = Zip::OutputStream.new("#{output_file_sans_extension}.zip")
+# mimetype: create zip, no compression, no extra fields
+zip.put_next_entry('mimetype', nil, nil, Zip::Entry::STORED, Zlib::NO_COMPRESSION)
+zip.write(IO.read(File.join('_site', 'epub', 'mimetype')))
+
+# everything else: append to the zip with default compression
+
+base_epub_src_path = File.join('_site', 'epub')
+
+if subdirectory
+  # And if it is a translation, just move the language subdirectory
+  store_compressed(zip, File.join(base_epub_src_path, subdirectory), base_epub_src_path)
+else
+  # Zip root folders, if this is not a translation
+  dirs = [File.join('images', 'epub'), 'fonts', 'styles', 'text', 'mathjax', 'js']
+  (dirs.map {|d| File.join(base_epub_src_path, d)}).each { |full_path| store_compressed(zip, full_path, base_epub_src_path) }
+end
+
+store_compressed(zip, File.join(base_epub_src_path, 'META-INF'), base_epub_src_path)
+store_compressed(zip, File.join(base_epub_src_path, 'package.opf'), base_epub_src_path)
+
+zip.close
+
+# Change file extension .zip to .epub
+if File.exist? "#{output_file_sans_extension}.zip"
+  FileUtils.mv("#{output_file_sans_extension}.zip", "#{output_file_sans_extension}.epub")
+end
+
+if File.exist? "#{output_file_sans_extension}.epub"
+  cli.say('Epub created^^!')
+else
+  cli.say('Sorry, something went wrong.')
+end
+
+# Check if epubcheck is in the PATH, and run it if it is
+epubchecklocation = find_epubcheck
+if epubchecklocation
+  cli.say('Found EpubCheck, running validation...')
+  _, stderr, _ = Open3.capture3("java -jar #{epubchecklocation} #{output_file_sans_extension}.epub")
+  epubCheckLogFile = File.join("_output", "epubcheck-log-#{Time.now.strftime("%Y-%m-%dT%H-%M-%S-%L")}.txt")
+  File.open(epubCheckLogFile, "w") { |f| f.write stderr }
+  cli.say('Opening EpubCheck log...')
+  open_file(epubCheckLogFile)
+else
+  cli.say("Couldn't find EpubCheck, sorry.")
+end
+
+cli.say('Done here')
