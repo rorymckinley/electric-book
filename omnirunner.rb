@@ -125,7 +125,7 @@ begin
     cli.say("Generating HTML for #{bookfolder}-#{subdirectory}.epub...")
   else
     cli.say("Generating HTML for #{bookfolder}.epub...")
-  end 
+  end
 
   # ...and run Jekyll to build new HTML
   stdout, stderr, _ = Open3.capture3(%Q{bundle exec jekyll build --config="_config.yml,_configs/_config.epub.yml,#{config}"})
@@ -311,17 +311,14 @@ begin
     cli.say('Sorry, something went wrong.')
   end
 
-  # Check if epubcheck is in the PATH, and run it if it is
-  epubchecklocation = find_epubcheck
-  if epubchecklocation
-    cli.say('Found EpubCheck, running validation...')
+  if epubValidation.empty?
+    epubchecklocation = File.join('_epubcheck', 'epubcheck.jar')
+    cli.say('Running EPUB validation...')
     _, stderr, _ = Open3.capture3("java -jar #{epubchecklocation} #{output_file_sans_extension}.epub")
     epubCheckLogFile = File.join("_output", "epubcheck-log-#{Time.now.strftime("%Y-%m-%dT%H-%M-%S-%L")}.txt")
     File.open(epubCheckLogFile, "w") { |f| f.write stderr }
     cli.say('Opening EpubCheck log...')
     open_file(epubCheckLogFile)
-  else
-    cli.say("Couldn't find EpubCheck, sorry.")
   end
 
   # Open file explorer to show the epub
